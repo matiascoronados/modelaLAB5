@@ -1,14 +1,21 @@
 Flock flock;
-Ball pelota = new Ball(180, 180, 50);
-int cantidadPajaros = 200;
+Ball pelota = new Ball(1, 1, 1);
+
+// Constantes
+int NumeroPersonas = 200;
+float a_i = 25.0;
+float b_i = 0.08;
+int k = 750;
+int k_achatada = 3000;
+float v_i_inicial = 5.0;
+float t_i = 0.5;
 
 //Se define tamaño de ventana y posicion inicial de los pajaros
 void setup() {
-  size(640, 360);
+  size(700, 500);
   flock = new Flock();
-  
   // Add an initial set of boids into the system
-  for (int i = 0; i < cantidadPajaros; i++) {
+  for (int i = 0; i < NumeroPersonas; i++) {
     flock.addBoid(new Boid(width/2,height/2));
   }
 }
@@ -17,21 +24,23 @@ void setup() {
 //Se dibuja la pelota y los pajaros
 void draw() {
   background(50);
+  
   for (Boid boids : flock.boids) {
     boids.checkCollision(pelota);    
   }
+
   //Se actualizan las posiciones de los pajaros
   flock.run();
-  
-  //Se dibuja la pelota en pantalla
-  pelota.display();
-  pelota.checkBoundaryCollision();  
+  line(0, 0, 600, 226);
+  line(600, 274, 0, 500);
 }
 
 // Agregar pajaros con un click
 void mousePressed() {
   flock.addBoid(new Boid(mouseX,mouseY));
 }
+
+
 
 
 
@@ -191,23 +200,24 @@ class Boid {
     // Draw a triangle rotated in the direction of velocity
     float theta = velocity.heading2D() + radians(90);
     // heading2D() above is now heading() but leaving old syntax until Processing.js catches up
-    
     fill(200, 100);
     stroke(255);
     pushMatrix();
     translate(position.x, position.y);
     rotate(theta);
-    beginShape(TRIANGLES);
+    beginShape(POINTS);
+    strokeWeight(5);
     vertex(0, -r*2);
-    vertex(-r, r*2);
-    vertex(r, r*2);
     endShape();
     popMatrix();
   }
 
   // Wraparound
   void borders() {
-    if (position.x < -r) position.x = width+r;
+    if (position.x < -r) 
+    {
+      position.x = width+r;
+    }
     if (position.y < -r) position.y = height+r;
     if (position.x > width+r) position.x = -r;
     if (position.y > height+r) position.y = -r;
