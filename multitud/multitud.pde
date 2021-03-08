@@ -3,6 +3,7 @@ Wall wall;
 
 int auxId = 0;
 
+//Constantes de simulacion
 float a_i = 25.0;
 float b_i = 0.08;
 int k = 750;
@@ -11,34 +12,48 @@ float v_i_inicial = 5.0;
 float t_i = 0.5;
 float r_vecindad = 30;
 
-int NumeroPersonas = 25;
+int NumeroPersonas = 20;
 float velocidadMax = 1;
-float forceMax = 10;
+float forceMax = 5;
 float radioPerson = 10;
 
+int aux = NumeroPersonas*2;
 void setup() {
   size(700, 500);
   crowd = new Crowd();
-  for (int i = 0; i < NumeroPersonas; i++) {
-    crowd.addPerson(new Person(random(width),random(height)));
-  }
+  //for (int i = 0; i < NumeroPersonas; i++) {
+    //crowd.addPerson(new Person(40,random(100,400)));
+  //}
   wall = new Wall();
   //Se agregan las dos lineas principales.
   wall.addHorizontalValues(0,0,600,226);
   wall.addHorizontalValues(600,274,0,500);
   
   //Se agregan las lineas de la ventana.
-  wall.addHorizontalValues(0,0,700,0);
-  wall.addVerticalValues(0,0,0,500);
-  wall.addHorizontalValues(0,500,700,500);
-  wall.addVerticalValues(700,0,700,500);
+  //wall.addHorizontalValues(0,0,700,0);
+  //wall.addVerticalValues(0,0,0,500);
+  //wall.addHorizontalValues(0,500,700,500);
+  //wall.addVerticalValues(700,0,700,500);
 }
 
 void draw() {
   background(50);
   line(0, 0, 600, 226);
   line(600, 274, 0, 500);
+  
+  //Para que las personas no se crean al mismo tiempo
+  if(aux%2 == 0){
+    if(aux !=0){
+      crowd.addPerson(new Person(40,random(100,400)));
+    }
+  }
+  if(aux > 0){
+    aux-=1;
+  }
+  
   crowd.run();
+  
+  
 }
 
 
@@ -106,7 +121,8 @@ class Crowd {
   }
 
   void addPerson(Person p) {
-    crowds.add(p);}
+    crowds.add(p);
+  }
 }
 
 class Person {
@@ -137,6 +153,7 @@ class Person {
     processForces(crowds);
     update();  
     render();
+    borders();
   }
   
   void applyForce(PVector force) {
@@ -145,7 +162,7 @@ class Person {
   
   void processForces(ArrayList<Person> crowds) {
     //Fuerza propia
-    PVector own = ownForces();
+    PVector own = ownForces(position);
     //Fuerzas de multitud
     PVector sep = crowdForces(crowds);
     //Fuerzas de pared
@@ -155,9 +172,21 @@ class Person {
     applyForce(total);
   }
   
-  PVector ownForces(){
+  PVector ownForces(PVector position){
+    PVector direction = desiredDirection;
+    
+    //Direccion deseada dependiendo de la posicion de la persona
+    if(position.y < 226){
+      direction = new PVector(600,239);
+    }
+    if(position.y > 274){
+      direction = new PVector(600,-261);
+    }
+    if( 226 <= position.y && position.y <= 274){
+      direction = desiredDirection;
+    }
     PVector forces = new PVector(0, 0, 0);
-    PVector auxOF_1 = PVector.mult(desiredDirection,v_i_inicial);
+    PVector auxOF_1 = PVector.mult(direction,v_i_inicial);
     PVector auxOF_2 = PVector.sub(auxOF_1,velocity);
     PVector ownForce = PVector.div(auxOF_2,t_i); 
     forces.add(ownForce);
@@ -167,8 +196,7 @@ class Person {
   
 
 //FALTA CALCULAR:
-//Direccion unitaria perpendicular de la fuerza de friccion.
-
+//Direccion unitaria perpendicular de la fuerza de friccion. (LISTOO)
   PVector crowdForces (ArrayList<Person> crowds) {
     PVector forces = new PVector(0, 0, 0); 
     for (Person other : crowds) {
@@ -178,15 +206,15 @@ class Person {
         float r_ij = r + other.r;
         if(d_ij <= r_vecindad) {
           //Fuerza de repulsion.
-          PVector repulsionForce = getRepulsionForce(position, other.position);
+          PVector repulsionForce = getRepulsionForce(position, other.position,r_ij);
           forces.add(repulsionForce);      
           if(d_ij <= r_ij){
             //**Fuerzas de contacto**  
             //Fuerza corporal
-            PVector contactForce = getContactForce(position,other.position);
+            PVector contactForce = getContactForce(position,other.position,r_ij);
             forces.add(contactForce);        
             //Fuerza de friccion
-            PVector frictionForce = getFrictionForce(position,velocity,other.position,other.velocity);
+            PVector frictionForce = getFrictionForce(position,velocity,other.position,other.velocity,r_ij);
             forces.add(frictionForce);   
           }
         }
@@ -206,18 +234,18 @@ class Person {
         float d_ij = PVector.dist(position, wallPos);
         if(d_ij <= r_vecindad) {
           //Fuerza de repulsion.
-          PVector repulsionForce = getRepulsionForce(position,wallPos);
+          PVector repulsionForce = getRepulsionForce(position,wallPos,r);
           forces.add(repulsionForce);        
           if(d_ij <= r){
             //**Fuerzas de contacto**   
             //Fuerza corporal
-            PVector contactForce = getContactForce(position,wallPos);
+            PVector contactForce = getContactForce(position,wallPos,r);
             forces.add(contactForce);        
             //Fuerza de friccion
             //Se realizan unas modificaciones para adecuar la ecuacion de friccion con personas a friccion con paredes.
             PVector velocityAux = PVector.mult(velocity,-1);
             PVector velocityNull = new PVector(0,0);
-            PVector frictionForce = getFrictionForce(position,velocityAux,wallPos,velocityNull);
+            PVector frictionForce = getFrictionForce(position,velocityAux,wallPos,velocityNull,r);
             forces.add(frictionForce);   
           }
         }
@@ -228,34 +256,38 @@ class Person {
     return forces;
   }
   
-  PVector getRepulsionForce(PVector posA, PVector posB){
+  
+  PVector getRepulsionForce(PVector posA, PVector posB,float r_ij){
     float d_ij = PVector.dist(posA, posB);
     PVector diff = PVector.sub(posA, posB);
     PVector n_ij = PVector.div(diff,d_ij);
-    float exponent = (-1*(d_ij - r)/b_i);
+    float exponent = (-1*(d_ij - r_ij)/b_i);
     float auxRF = pow(a_i,exponent);
     PVector repulsionForce = PVector.mult(n_ij,auxRF);  
     return repulsionForce;
   }
   
-  PVector getContactForce(PVector posA, PVector posB){
+  PVector getContactForce(PVector posA, PVector posB,float r_ij){
     float d_ij = PVector.dist(posA, posB);
     PVector diff = PVector.sub(posA, posB);
     PVector n_ij = PVector.div(diff,d_ij);    
-    float auxCF = 2*k*(r-d_ij);
+    float auxCF = 2*k*(r_ij-d_ij);
     PVector contactForce = PVector.mult(n_ij,auxCF); 
     return contactForce;
   }
   
-  //Falta estooooooo
-  PVector getFrictionForce(PVector posA,PVector velocityA, PVector posB, PVector velocityB){
+  PVector getFrictionForce(PVector posA,PVector velocityA, PVector posB, PVector velocityB,float r_ij){
     float d_ij = PVector.dist(posA, posB);
-    PVector tangDirection = new PVector(1,1,1);
+    PVector diff = PVector.sub(posA, posB);
+    PVector n_ij = PVector.div(diff,d_ij);
+    
+    //Se agrega la direccion unitaria perpendicular
+    PVector tangDirection = new PVector(-1*n_ij.y,n_ij.x);
     PVector auxRelTang = PVector.sub(velocityB,velocityA);
     
-    float relTangVelocity = PVector.dot(tangDirection,auxRelTang);
+    float relTangVelocity = PVector.dot(auxRelTang,tangDirection);
     
-    float auxFF = k_achatada*(r-d_ij)*relTangVelocity;
+    float auxFF = k_achatada*(r_ij-d_ij)*relTangVelocity;
     PVector frictionForce = PVector.mult(tangDirection,auxFF); 
     return frictionForce;
   }
@@ -269,6 +301,18 @@ class Person {
   } 
   
   void render() {
-    circle(position.x, position.y, radioPerson);
-  }   
+    //El tercer parametro de circle() es el diametro, por eso multiplice por 2 el radios
+    circle(position.x, position.y, 2*radioPerson);
+  }
+  
+  //Metodo que verifica si esta en el borde, para que vuelva a aparecer por el otro extremo.
+  void borders() {
+    if (position.x < -r) 
+    {
+      position.x = width+r;
+    }
+    if (position.y < -r) position.y = height+r;
+    if (position.x > width+r) position.x = -r;
+    if (position.y > height+r) position.y = -r;
+  }
 }
