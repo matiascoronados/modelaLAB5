@@ -10,12 +10,15 @@ int k = 750;
 int k_achatada = 3000;
 float v_i_inicial = 5.0;
 float t_i = 0.5;
-float r_vecindad = 30;
 
-int NumeroPersonas = 20;
+int NumeroPersonas = 50;
 float velocidadMax = 1;
-float forceMax = 5;
+float forceMax = 4;
 float radioPerson = 10;
+float r_vecindad = radioPerson*6;
+float xInitialValue = 40;
+float yInitialValue = 0;
+float xMinimalDistance = 60;
 
 int aux = NumeroPersonas*2;
 void setup() {
@@ -34,23 +37,34 @@ void setup() {
   //wall.addVerticalValues(0,0,0,500);
   //wall.addHorizontalValues(0,500,700,500);
   //wall.addVerticalValues(700,0,700,500);
+
 }
 
 void draw() {
   background(50);
   line(0, 0, 600, 226);
   line(600, 274, 0, 500);
-  
   //Para que las personas no se crean al mismo tiempo
   if(aux%2 == 0){
-    if(aux !=0){
-      crowd.addPerson(new Person(40,random(100,400)));
+    if(aux != 0){
+      float lastPersonPosX = crowd.getLastPersonPosX();
+      if(lastPersonPosX > xMinimalDistance){
+        
+      float yValue = 0;
+      while(yValue < 100 || yValue > 400){
+        yValue = randomGaussian()*250;        
+      }
+       yInitialValue = yValue;        
+        
+        crowd.addPerson(new Person(xInitialValue,yInitialValue));        
+      }else{
+        aux+=1;
+      }
     }
   }
   if(aux > 0){
     aux-=1;
   }
-  
   crowd.run();
   
   
@@ -123,6 +137,16 @@ class Crowd {
   void addPerson(Person p) {
     crowds.add(p);
   }
+  
+  float getLastPersonPosX(){
+    int crowdSize = crowds.size();
+    if(crowdSize == 0){
+      return xMinimalDistance+1;
+    }else{
+      Person p = crowds.get(crowdSize-1);
+      return p.getPosition().x;
+    }
+  }
 }
 
 class Person {
@@ -147,6 +171,10 @@ class Person {
     maxforce = forceMax;
     id = auxId;
     auxId = auxId +1;
+  }
+  
+  PVector getPosition(){
+    return position;
   }
   
   void run(ArrayList<Person> crowds) {
@@ -207,22 +235,27 @@ class Person {
         if(d_ij <= r_vecindad) {
           //Fuerza de repulsion.
           PVector repulsionForce = getRepulsionForce(position, other.position,r_ij);
+          repulsionForce.normalize();
           forces.add(repulsionForce);      
           if(d_ij <= r_ij){
             //**Fuerzas de contacto**  
             //Fuerza corporal
             PVector contactForce = getContactForce(position,other.position,r_ij);
+            contactForce.normalize();
             forces.add(contactForce);        
             //Fuerza de friccion
             PVector frictionForce = getFrictionForce(position,velocity,other.position,other.velocity,r_ij);
+            frictionForce.normalize();
             forces.add(frictionForce);   
           }
         }
       }
     }
-    forces.mult(maxspeed);
-    forces.limit(maxforce);
     forces.normalize();
+    forces.mult(maxspeed);
+    forces.sub(velocity);
+    forces.limit(maxforce);
+    
     return forces;
   }
   
@@ -235,24 +268,28 @@ class Person {
         if(d_ij <= r_vecindad) {
           //Fuerza de repulsion.
           PVector repulsionForce = getRepulsionForce(position,wallPos,r);
+          repulsionForce.normalize();
           forces.add(repulsionForce);        
           if(d_ij <= r){
             //**Fuerzas de contacto**   
             //Fuerza corporal
             PVector contactForce = getContactForce(position,wallPos,r);
+            contactForce.normalize();
             forces.add(contactForce);        
             //Fuerza de friccion
             //Se realizan unas modificaciones para adecuar la ecuacion de friccion con personas a friccion con paredes.
             PVector velocityAux = PVector.mult(velocity,-1);
             PVector velocityNull = new PVector(0,0);
             PVector frictionForce = getFrictionForce(position,velocityAux,wallPos,velocityNull,r);
+            frictionForce.normalize();
             forces.add(frictionForce);   
           }
         }
       }
-    forces.mult(maxspeed);
-    forces.limit(maxforce);
     forces.normalize();
+    forces.mult(maxspeed);
+    forces.sub(velocity);
+    forces.limit(maxforce);
     return forces;
   }
   
